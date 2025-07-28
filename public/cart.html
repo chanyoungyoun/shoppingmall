@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>장바구니</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    header {
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- ✅ 찬영이의 잡화상점 배너 -->
+  <header onclick="location.href='index.html'">
+    찬영이의 잡화상점
+  </header>
+
+  <main class="cart-container">
+    <div class="cart-items" id="cart-items">
+      <button class="select-toggle" onclick="toggleSelectAll()">전체 선택/해제</button>
+    </div>
+
+    <div class="cart-summary">
+      <div class="summary-title">🗃️ 주문 예산 금액</div>
+      <div class="summary-line">총 상품 수: <span id="total-count">0</span>개</div>
+      <div class="summary-line">총 상품 금액: <span id="total-price">0</span>원</div>
+      <hr class="summary-divider" />
+      <div class="summary-total">총합: <span id="total-final">0</span>원</div>
+      <button class="checkout-btn">구매하기</button>
+    </div>
+  </main>
+
+  <script>
+    const token = localStorage.getItem('token');
+    const cartItemsEl = document.getElementById('cart-items');
+    let cartList = [];
+
+    if (!token) {
+      alert('로그인이 필요합니다.');
+      location.href = '/login.html';
+    }
+
+    async function loadCart() {
+      try {
+        const res = await fetch('/cart/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          alert('인증 오류! 다시 로그인 해주세요.');
+          location.href = '/login.html';
+          return;
+        }
+
+        cartList = await res.json();
+
+        if (!cartList.length) {
+          cartItemsEl.innerHTML = '<p>장바구니가 비어 있습니다.</p>';
+          return;
+        }
+
+        cartItemsEl.querySelectorAll('.cart-item-box').forEach(el => el.remove());
+
+        for (const item of cartList) {
+          const box = document.createElement('div');
+          box.className = 'cart-item-box';
+
+          const div = document.createElement('div');
+          div.className = 'cart-item';
+          div.dataset.id = item.cartId;
+
+          div.innerHTML = `
+            <input type="checkbox" class="check-item" data-id="${item.cartId}" checked />
+            <img src="${item.ImagePath ? '/' + item.ImagePath.replace(/^\/?/, '') : 'noimage.jpg'}" alt="${item.ProductName}" />
+            <div>
+              <h3>${item.ProductName}</h3>
+              <p>수량: 
+                <input type="number" class="qty-input" data-id="${item.cartId}" value="${item.quantity}" min="1" />
+              </p>
+              <p>합계: <span class="item-total" data-id="${item.cartId}">${(item.quantity * item.Price).toLocaleString()}</span>원</p>
+            </div>
+            <button class="delete-btn" data-id="${item.cartId}">삭제</button>
+          `;
+
+          box.appendChild(div);
+          cartItemsEl.insertBefore(box, cartItemsEl.querySelector('.select-toggle'));
+        }
+
+        attachEvents();
+        calculateTotal();
+      } catch (err) {
+        console.error('장바구니 로딩 실패:', err);
+        alert('장바구니 로딩 중 오류가 발생했습니다.');
+      }
+    }
+
+    function attachEvents() {
+      document.querySelectorAll('.qty-input').forEach(input => {
+        input.addEventListener('input', async e => {
+          const cartId = Number(e.target.dataset.id);
+          const qty = parseInt(e.target.value);
+          if (!isNaN(qty) && qty > 0) {
+            const item = cartList.find(i => i.cartId === cartId);
+            item.quantity = qty;
+
+            const totalEl = document.querySelector(`.item-total[data-id="${cartId}"]`);
+            totalEl.innerText = (item.Price * qty).toLocaleString();
+
+            calculateTotal();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async e => {
+          const cartId = Number(e.target.dataset.id);
+          await fetch(`/cart/${cartId}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          loadCart();
+        });
+      });
+
+      document.querySelectorAll('.check-item').forEach(checkbox => {
+        checkbox.addEventListener('change', () => {
+          calculateTotal();
+        });
+      });
+    }
+
+    function calculateTotal() {
+      let totalCount = 0;
+      let totalPrice = 0;
+
+      document.querySelectorAll('.cart-item').forEach(item => {
+        const checkbox = item.querySelector('.check-item');
+        const qtyInput = item.querySelector('.qty-input');
+        const cartId = Number(item.dataset.id);
+        const product = cartList.find(i => i.cartId === cartId);
+
+        if (checkbox.checked) {
+          const quantity = parseInt(qtyInput.value);
+          totalCount += quantity;
+          totalPrice += quantity * product.Price;
+        }
+      });
+
+      document.getElementById('total-count').innerText = totalCount;
+      document.getElementById('total-price').innerText = totalPrice.toLocaleString();
+      document.getElementById('total-final').innerText = totalPrice.toLocaleString();
+    }
+
+    function toggleSelectAll() {
+      const checkboxes = document.querySelectorAll('.check-item');
+      const allChecked = [...checkboxes].every(c => c.checked);
+      checkboxes.forEach(c => (c.checked = !allChecked));
+      calculateTotal();
+    }
+
+    document.querySelector('.checkout-btn').addEventListener('click', () => {
+      const selected = [];
+      document.querySelectorAll('.cart-item').forEach(item => {
+        const checkbox = item.querySelector('.check-item');
+        const cartId = Number(item.dataset.id);
+        if (checkbox.checked) {
+          const qty = item.querySelector('.qty-input').value;
+          const product = cartList.find(i => i.cartId === cartId);
+          selected.push({
+            cartId,
+            productID: product.ProductID,
+            productName: product.ProductName,
+            productCnt: qty,
+            price: product.Price,
+            imagePath: product.ImagePath
+          });
+        }
+      });
+
+      if (!selected.length) {
+        alert('선택된 상품이 없습니다.');
+        return;
+      }
+
+      localStorage.setItem('orderItems', JSON.stringify(selected));
+      location.href = '/order.html';
+    });
+
+    loadCart();
+  </script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>마이페이지</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    header {
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- ✅ 찬영이의 잡화상점 배너 -->
+  <header onclick="location.href='index.html'">
+    찬영이의 잡화상점
+  </header>
+
+  <main>
+    <h1 id="page-title" style="text-align: center; margin: 20px 0;">의 마이페이지</h1>
+
+    <section>
+      <h2>🧍 내 정보</h2>
+
+      <!-- 기존 정보 출력 -->
+      <div id="user-info">
+        <p><strong>이름:</strong> <span id="info-name"></span></p>
+        <p><strong>이메일:</strong> <span id="info-email"></span></p>
+        <p><strong>연락처:</strong> <span id="info-contact"></span></p>
+        <p><strong>주소:</strong> <span id="info-address"></span></p>
+      </div>
+
+      <h3>✏️ 수정하기</h3>
+      <form id="user-form">
+        <input type="text" id="nameInput" name="userName" placeholder="새 이름" />
+        <input type="email" id="emailInput" name="email" placeholder="새 이메일" />
+        <input type="text" id="contactInput" name="contact" placeholder="새 연락처" />
+        <input type="text" id="addressInput" name="address" placeholder="새 주소" />
+        <button type="submit">정보 수정</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>🛒 장바구니</h2>
+      <button onclick="location.href='/cart.html'">장바구니 바로가기</button>
+      <button onclick="location.href='/orders.html'">주문 내역</button>
+      <button onclick="logout()">로그아웃</button>
+    </section>
+  </main>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    const form = document.getElementById('user-form');
+
+    if (!user || !user.userNumber) {
+      alert('로그인이 필요합니다.');
+      location.href = '/login.html';
+    }
+
+    fetch(`/users/${user.userNumber}`)
+      .then(res => {
+        if (!res.ok) throw new Error('사용자 정보를 불러오지 못했습니다.');
+        return res.json();
+      })
+      .then(data => {
+        document.getElementById('info-name').innerText = data.UserName || '';
+        document.getElementById('info-email').innerText = data.Email || '';
+        document.getElementById('info-contact').innerText = data.Contact || '';
+        document.getElementById('info-address').innerText = data.Address || '';
+        document.getElementById('page-title').textContent = `${data.UserName}의 마이페이지`;
+
+        document.getElementById('nameInput').value = data.UserName || '';
+        document.getElementById('emailInput').value = data.Email || '';
+        document.getElementById('contactInput').value = data.Contact || '';
+        document.getElementById('addressInput').value = data.Address || '';
+      })
+      .catch(err => {
+        console.error(err);
+        alert('사용자 정보를 불러오는 중 오류 발생');
+      });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const updatedUser = {
+        userName: document.getElementById('nameInput').value,
+        email: document.getElementById('emailInput').value,
+        contact: document.getElementById('contactInput').value,
+        address: document.getElementById('addressInput').value
+      };
+
+      try {
+        const res = await fetch(`/users/${user.userNumber}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedUser),
+        });
+
+        const result = await res.json();
+
+        if (!res.ok) throw new Error(result.message || '정보 수정 실패');
+
+        alert(result.message || '정보가 성공적으로 수정되었습니다.');
+        localStorage.setItem('user', JSON.stringify({ ...user, ...updatedUser }));
+        location.reload();
+      } catch (err) {
+        console.error(err);
+        alert('정보 수정 중 오류가 발생했습니다.');
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem('user');
+      location.href = '/';
+    }
+  </script>
+</body>
+</html>

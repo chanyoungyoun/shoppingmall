@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>상품 상세 정보</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    header {
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .container {
+      display: flex;
+      justify-content: center;
+      gap: 50px;
+      margin-top: 50px;
+    }
+    .left {
+      flex: 1;
+      max-width: 500px;
+    }
+    .right {
+      flex: 1;
+      max-width: 500px;
+    }
+    .price-box {
+      margin-top: 10px;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .quantity-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .quantity-wrapper input {
+      width: 60px;
+      font-size: 18px;
+      text-align: center;
+    }
+    .accordion {
+      margin-top: 20px;
+    }
+    .accordion summary {
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .accordion p {
+      margin-left: 20px;
+    }
+    .admin-controls {
+      margin-top: 30px;
+    }
+    .admin-controls button {
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <!-- ✅ 찬영이의 잡화상점 배너 -->
+  <header onclick="location.href='index.html'">
+    찬영이의 잡화상점
+  </header>
+
+  <main class="container">
+    <div class="left">
+      <img id="product-image" src="" alt="상품 이미지" style="max-width: 100%;" />
+      <p><strong>설명:</strong> <span id="product-description"></span></p>
+    </div>
+
+    <div class="right">
+      <h2 id="product-name">상품 이름</h2>
+      <p class="price-box"><strong>가격:</strong> <span id="product-price"></span> 원</p>
+
+      <div class="quantity-wrapper">
+        <input type="number" id="product-qty" value="1" min="1" />
+        <button onclick="addToCart()">🛒 <strong style="color: royalblue;">장바구니 담기</strong></button>
+        <span id="total-price"></span>
+      </div>
+
+      <div class="accordion">
+        <details>
+          <summary>📌 상세 정보</summary>
+          <p>이 상품은 최고 품질로 선별된 제품입니다.</p>
+        </details>
+        <details>
+          <summary>⚠️ 취급 유의사항</summary>
+          <p>직사광선을 피해 보관하시고, 개봉 후 빠른 섭취를 권장합니다.</p>
+        </details>
+      </div>
+
+      <div class="admin-controls" id="admin-controls"></div>
+    </div>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const productId = params.get('id');
+    let unitPrice = 0;
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem('token');
+  
+    if (!productId) {
+      alert('잘못된 접근입니다.');
+      location.href = '/';
+    }
+  
+    fetch(`/products/${productId}`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('product-name').innerText = data.ProductName;
+        document.getElementById('product-image').src = data.ImagePath?.startsWith('uploads/')
+          ? `/${data.ImagePath}`
+          : data.ImagePath || 'noimage.jpg';
+        document.getElementById('product-price').innerText = Number(data.Price).toLocaleString();
+        document.getElementById('product-description').innerHTML = data.Description;
+        unitPrice = Number(data.Price);
+        updateTotalPrice();
+  
+        if (user && user.userType === 'Admin') {
+          const adminControls = document.getElementById('admin-controls');
+          adminControls.innerHTML = `
+            <hr />
+            <button onclick="location.href='/product_modify.html?id=${data.ProductID}'">✏️ 수정하기</button>
+            <button onclick="deleteProduct(${data.ProductID})" style="color:red;">🗑 삭제하기</button>
+          `;
+        }
+      })
+      .catch(err => {
+        console.error('상품 정보 로딩 오류:', err);
+        alert('상품 정보를 불러오는 데 실패했습니다.');
+        location.href = '/';
+      });
+  
+    document.getElementById('product-qty').addEventListener('input', updateTotalPrice);
+  
+    function updateTotalPrice() {
+      const qty = parseInt(document.getElementById('product-qty').value);
+      const total = qty * unitPrice;
+      document.getElementById('total-price').innerText = `총: ${total.toLocaleString()} 원`;
+    }
+  
+    async function addToCart() {
+      const quantity = parseInt(document.getElementById('product-qty').value);
+      if (isNaN(quantity) || quantity <= 0) {
+        alert('올바른 수량을 입력해주세요.');
+        return;
+      }
+  
+      if (!token) {
+        alert('로그인이 필요합니다.');
+        location.href = '/login.html';
+        return;
+      }
+  
+      try {
+        const res = await fetch('/cart', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ productId: Number(productId), quantity })
+        });
+  
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message);
+        alert(`🛒 ${quantity}개가 장바구니에 추가되었습니다.`);
+      } catch (error) {
+        console.error('장바구니 추가 오류:', error);
+        alert('장바구니 추가에 실패했습니다.');
+      }
+    }
+  
+    async function deleteProduct(id) {
+      if (!confirm('정말 이 상품을 삭제하시겠습니까?')) return;
+  
+      try {
+        const res = await fetch(`/products/${id}`, {
+          method: 'DELETE'
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message);
+        alert('상품이 삭제되었습니다.');
+        location.href = '/';
+      } catch (err) {
+        console.error(err);
+        alert('상품 삭제 중 오류가 발생했습니다.');
+      }
+    }
+  </script>
+</body> 
+</html>

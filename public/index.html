@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>찬영의 쇼핑몰</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <aside id="sidebar" class="sidebar">
+    <ul>
+      <li><button onclick="filterCategory('전체')">전체</button></li>
+      <li><button onclick="filterCategory('식품')">식품</button></li>
+      <li><button onclick="filterCategory('전자기기')">전자기기</button></li>
+      <li><button onclick="filterCategory('의류')">의류</button></li>
+      <li><button onclick="filterCategory('생활용품')">생활용품</button></li>
+    </ul>
+  </aside>
+
+  <header>
+    <div class="header-left">
+      <button id="menu-toggle" class="menu-button">☰</button>
+      <form id="searchForm" class="search-form">
+        <input type="text" id="searchInput" placeholder="상품명을 입력하세요" />
+        <button type="submit">검색</button>
+      </form>
+    </div>
+    <h1>찬영이의 잡화상점</h1>
+    <nav id="nav-buttons"></nav>
+  </header>
+
+  <main>
+    <h2>상품 목록</h2>
+    <div id="product-list" class="product-grid"></div>
+  </main>
+
+  <footer>
+    <p>© 2025 찬영이의 잡화상점.</p>
+  </footer>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    const nav = document.getElementById('nav-buttons');
+
+    if (user) {
+      nav.innerHTML = `
+        <span>${user.userName}님 환영합니다!</span>
+        <button onclick="location.href='/mypage.html'">마이페이지</button>
+        <button onclick="logout()">로그아웃</button>
+      `;
+
+      if (user.userType === 'Admin') {
+        const adminBtn = document.createElement('button');
+        adminBtn.textContent = '상품 등록';
+        adminBtn.onclick = () => location.href = '/admin_product_register.html';
+        nav.appendChild(adminBtn);
+      }
+    } else {
+      nav.innerHTML = `
+        <button onclick="location.href='/signup.html'">회원가입</button>
+        <button onclick="location.href='/login.html'">로그인</button>
+      `;
+    }
+
+    function logout() {
+      localStorage.removeItem('user');
+      alert('로그아웃 되었습니다.');
+      location.reload();
+    }
+
+    const menuToggle = document.getElementById('menu-toggle');
+    const sidebar = document.getElementById('sidebar');
+    menuToggle.addEventListener('click', () => {
+      sidebar.classList.toggle('visible');
+    });
+
+    document.getElementById('searchForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!query) return;
+      const filteredProducts = allProducts.filter(product =>
+        product.ProductName.toLowerCase().includes(query)
+      );
+      renderProducts(filteredProducts);
+    });
+
+    let allProducts = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('/products');
+        const products = await res.json();
+        allProducts = products;
+        renderProducts(products);
+      } catch (err) {
+        console.error('상품 로딩 오류:', err);
+      }
+    });
+
+    function renderProducts(products) {
+      const listEl = document.getElementById('product-list');
+      listEl.innerHTML = '';
+      products.forEach(p => {
+        const imageUrl = p.ImagePath ? '/' + p.ImagePath : '/noimage.jpg';
+        const card = document.createElement('div');
+        card.className = 'product-card';
+        card.innerHTML = `
+          <img src="${p.ImagePath ? '/' + p.ImagePath.replace(/^\/?/, '') : 'noimage.jpg'}" alt="${p.ProductName}" />
+          <h3>${p.ProductName}</h3>
+          <p>가격: ${Number(p.Price).toLocaleString()}원</p>
+          <button onclick="location.href='/product.html?id=${p.ProductID}'">상세보기</button>
+        `;
+        listEl.appendChild(card);
+      });
+    }
+    
+
+    function filterCategory(category) {
+      if (category === '전체') {
+        renderProducts(allProducts);
+      } else {
+        const filtered = allProducts.filter(p => p.ProductType === category);
+        renderProducts(filtered);
+      }
+    }
+  </script>
+</body>
+</html>

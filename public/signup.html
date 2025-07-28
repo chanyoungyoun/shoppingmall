@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>회원가입</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- ✅ 찬영이의 잡화상점 배너 -->
+  <header onclick="location.href='index.html'">
+    찬영이의 잡화상점
+  </header>
+  <h2>회원가입</h2>
+  <form id="signup-form">
+    <input type="text" name="userName" placeholder="이름" required />
+    <input type="text" name="id" placeholder="아이디" required />
+    <input type="password" name="pwd" placeholder="비밀번호" required />
+    <input type="email" name="email" placeholder="이메일" required />
+    <input type="text" name="contact" placeholder="연락처" />
+    <input type="text" name="address" placeholder="주소" />
+    <select name="userType" required>
+      <option value="Customer">고객</option>
+      <option value="Admin">관리자</option>
+    </select>
+    <button type="submit">회원가입</button>
+  </form>
+
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const body = Object.fromEntries(formData);
+
+      const res = await fetch('/users/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await res.json();
+      alert(result.message);
+      if (res.ok) location.href = '/login.html';
+    });
+  </script>
+</body>
+</html>

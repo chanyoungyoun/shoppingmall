@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>상품 수정</title>
+  <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.6/quill.snow.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    form {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      background: #f9f9f9;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-top: 15px;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 5px;
+    }
+    #editor {
+      height: 150px;
+      background: white;
+    }
+    button {
+      margin-top: 20px;
+      padding: 10px 20px;
+    }
+    img.preview {
+      max-width: 100%;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>상품 수정 페이지</h1>
+    <nav>
+      <button onclick="location.href='/'">홈으로</button>
+    </nav>
+  </header>
+
+  <main>
+    <form id="modifyForm" enctype="multipart/form-data">
+      <input type="hidden" id="productID" />
+      <input type="hidden" name="description" id="hiddenDescription" />
+
+      <label>상품명:
+        <input type="text" name="productName" id="productName" required />
+      </label>
+
+      <label>설명:</label>
+      <div id="editor"></div>
+
+      <label>가격:
+        <input type="number" name="price" id="price" required />
+      </label>
+
+      <label>재고:
+        <input type="number" name="stock" id="stock" required />
+      </label>
+
+      <label>상품 수량:
+        <input type="number" name="productCnt" id="productCnt" required />
+      </label>
+
+      <label>카테고리:
+        <select name="productType" id="productType" required>
+          <option value="식품">식품</option>
+          <option value="전자기기">전자기기</option>
+          <option value="의류">의류</option>
+          <option value="생활용품">생활용품</option>
+        </select>
+      </label>
+
+      <label>기존 이미지:
+        <img id="preview-image" class="preview" src="" alt="기존 이미지" />
+      </label>
+
+      <label>새 이미지 선택:
+        <input type="file" name="productImage" id="productImage" accept="image/*" />
+      </label>
+
+      <button type="submit">수정 완료</button>
+    </form>
+  </main>
+
+  <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const productId = params.get('id');
+
+    const form = document.getElementById('modifyForm');
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      placeholder: '상품 설명을 입력하세요...',
+    });
+
+    if (!productId) {
+      alert('잘못된 접근입니다.');
+      location.href = '/';
+    }
+
+    // 기존 상품 정보 로드
+    fetch(`/products/${productId}`)
+      .then(res => res.json())
+      .then(product => {
+        document.getElementById('productID').value = product.ProductID;
+        document.getElementById('productName').value = product.ProductName;
+        quill.root.innerHTML = product.Description;
+        document.getElementById('price').value = product.Price;
+        document.getElementById('stock').value = product.Stock;
+        document.getElementById('productCnt').value = product.ProductCnt;
+        document.getElementById('productType').value = product.ProductType;
+        document.getElementById('preview-image').src = product.ImagePath ? '/' + product.ImagePath : 'noimage.jpg';
+      })
+      .catch(err => {
+        console.error('상품 로딩 오류:', err);
+        alert('상품 정보를 불러오지 못했습니다.');
+        location.href = '/';
+      });
+
+    // 제출
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // 에디터 내용 → hidden input에 저장
+      document.getElementById('hiddenDescription').value = quill.root.innerHTML;
+
+      const formData = new FormData(form);
+
+      try {
+        const res = await fetch(`/products/${productId}`, {
+          method: 'PUT',
+          body: formData
+        });
+
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message);
+
+        alert('상품이 성공적으로 수정되었습니다.');
+        location.href = `/product.html?id=${productId}`;
+      } catch (err) {
+        console.error('수정 오류:', err);
+        alert('수정에 실패했습니다.');
+      }
+    });
+  </script>
+</body>
+</html>

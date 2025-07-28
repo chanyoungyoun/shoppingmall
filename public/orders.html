@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>주문 내역</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0;
+      font-family: 'Arial', sans-serif;
+      background: #f8f8f8;
+    }
+    header {
+      background-color: #333;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    h1 {
+      text-align: center;
+      margin: 30px 0 20px;
+    }
+    .date-group {
+      margin: 0 20px 40px;
+    }
+    .date-header {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 25px 0 10px;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 5px;
+    }
+    .order-box {
+      border: 1px solid #ccc;
+      background: white;
+      padding: 16px;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+    .order-box img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+    }
+    .order-details {
+      flex: 1;
+    }
+    .order-details p {
+      margin: 2px 0;
+    }
+    .order-meta {
+      font-size: 13px;
+      color: gray;
+    }
+    .empty {
+      text-align: center;
+      margin-top: 60px;
+      color: gray;
+    }
+  </style>
+</head>
+<body>
+  <header onclick="location.href='/index.html'">
+    찬영이의 잡화상점
+  </header>
+
+  <h1>🧾 주문 내역</h1>
+  <div id="orders-container"></div>
+
+  <script>
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem('token');
+    const ordersContainer = document.getElementById('orders-container');
+
+    if (!user || !token) {
+      alert('로그인이 필요합니다.');
+      location.href = '/login.html';
+    }
+
+    function formatDate(dateStr) {
+      const date = new Date(dateStr);
+      if (isNaN(date)) return '날짜 없음';
+      const yyyy = date.getFullYear();
+      const mm = date.getMonth() + 1;
+      const dd = date.getDate();
+      return `${yyyy}. ${mm}. ${dd}`;
+    }
+
+    function formatDelivery(dateStr) {
+      const date = new Date(dateStr);
+      if (isNaN(date)) return '배송일 미정';
+      date.setDate(date.getDate() + 1);
+      return `${date.getMonth() + 1}/${date.getDate()}(화) 도착`;
+    }
+
+    async function loadOrders() {
+      try {
+        const res = await fetch(`/payment/${user.userNumber}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          alert('주문 내역 조회 실패');
+          return;
+        }
+
+        const orders = await res.json();
+
+        if (!orders.length) {
+          ordersContainer.innerHTML = `<p class="empty">주문 내역이 없습니다.</p>`;
+          return;
+        }
+
+        const grouped = {};
+        for (const order of orders) {
+          const orderDate = formatDate(order.CreatedAt);
+          if (!grouped[orderDate]) grouped[orderDate] = [];
+          grouped[orderDate].push(order);
+        }
+
+        ordersContainer.innerHTML = '';
+
+        for (const [date, group] of Object.entries(grouped).sort((a, b) => new Date(b[0]) - new Date(a[0]))) {
+          const dateDiv = document.createElement('div');
+          dateDiv.className = 'date-group';
+
+          const dateHeader = document.createElement('div');
+          dateHeader.className = 'date-header';
+          dateHeader.innerText = `${date} 주문`;
+          dateDiv.appendChild(dateHeader);
+
+          for (const order of group) {
+            const box = document.createElement('div');
+            box.className = 'order-box';
+
+            box.innerHTML = `
+              <img src="${order.ImagePath ? '/' + order.ImagePath.replace(/^\/?/, '') : 'noimage.jpg'}" />
+              <div class="order-details">
+                <p><strong>${order.ProductName}</strong></p>
+                <p>수량: ${order.ProductCnt}개</p>
+                <p>총 금액: ${Number(order.TotalPrice).toLocaleString()}원</p>
+                <p class="order-meta">배송완료 · ${formatDelivery(order.CreatedAt)}</p>
+              </div>
+            `;
+
+            dateDiv.appendChild(box);
+          }
+
+          ordersContainer.appendChild(dateDiv);
+        }
+      } catch (err) {
+        console.error('주문 내역 로딩 오류:', err);
+        alert('오류가 발생했습니다.');
+      }
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

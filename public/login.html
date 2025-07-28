@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>로그인</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    header {
+      background-color: #333;
+      color: white;
+      padding: 15px;
+      font-size: 20px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- ✅ 찬영이의 잡화상점 배너 -->
+  <header onclick="location.href='index.html'">
+    찬영이의 잡화상점
+  </header>
+
+  <h2>로그인</h2>
+  <form id="login-form">
+    <input type="text" name="id" placeholder="아이디" required />
+    <input type="password" name="pwd" placeholder="비밀번호" required />
+    <button type="submit">로그인</button>
+  </form>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const body = Object.fromEntries(formData);
+
+      const res = await fetch('/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      const result = await res.json();
+      alert(result.message);
+
+      if (res.ok) {
+        // ✅ JWT 토큰 저장
+        localStorage.setItem('token', result.token);
+        // ✅ 사용자 정보도 저장
+        localStorage.setItem('user', JSON.stringify(result.user));
+        // ✅ 홈으로 이동
+        location.href = '/';
+      }
+    });
+  </script>
+</body>
+</html>
